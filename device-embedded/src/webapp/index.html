@@ -110,6 +110,18 @@ String html_index = R"###(
     opacity: 0.5;
   }
 
+  .controlButton {
+    height: 4em;
+    width: 4em;
+    padding: 2px;
+    vertical-align: middle;
+    text-align: center;
+  }
+
+  .red {
+    background-color: red;
+  }
+
   table {
     width: 100%;
     max-width: 20em;
@@ -147,81 +159,36 @@ String html_index = R"###(
       <input type='checkbox'  onchange='modeSwitch(this)'>
       <span class='slider round'></span>
     </label>
-    <lable class='l1'>Train mode</label>
+    <lable class='l1'>RC Mode</label>
   </div>
   <div id='trainSection' class='section'>
-    <h2>Train Section</h2>
-    <p>
-      <label class='label'>Intervall [micros] </label><input type='number' id='frameIntervall' value='3000'></br>
-      <label class='label'>Num Frames/Int </label><input type='number' id='frameNumber' value='200'></br>
-      <label class='label'>Fq Servo Min </label><input type='number' id='servomin' value='200'></br>
-      <label class='label'>Fq Servo Max </label><input type='number' id='servomax' value='300'></br>
-    </p>
+    <h2>Steer Control</h2>
     <p>
       <table>
-        <thead>
-          <tr><td>Leg</td><td>Start</td><td>Amp</td><td>Speed</td><td>Trim</td></tr>
-        </thead>
         <tbody>
           <tr>
-            <td>RF</td>
-            <td><input type='number' id='start0' value='0' onchange='trainChanged(this)'></td>
-            <td><input type='number' id='amp0' value='0' onchange='trainChanged(this)'></td>
-            <td><input type='number' id='speed0' value='1' onchange='trainChanged(this)'></td>
-            <td><input type='number' id='trim0' value='0' onchange='trainChanged(this)'></td>
+            <td></td>
+            <td><button class = 'controlButton' onclick='rcont("forward")'>^</button></td>
+            <td></td>
           </tr>
           <tr>
-            <td>RB</td>
-            <td><input type='number' id='start1' value='0' onchange='trainChanged(this)'></td>
-            <td><input type='number' id='amp1' value='0' onchange='trainChanged(this)'></td>
-            <td><input type='number' id='speed1' value='1' onchange='trainChanged(this)'></td>
-            <td><input type='number' id='trim1' value='0' onchange='trainChanged(this)'></td>
+            <td><button class = 'controlButton' onclick='rcont("left")'>&lt;</button></td>
+            <td><button class = 'controlButton red' onclick='rcont("stop")'>Stop</button></td>
+            <td><button class = 'controlButton' onclick='rcont("right")'>&gt;</button></td>
           </tr>
           <tr>
-            <td>LF</td>
-            <td><input type='number' id='start2' value='0' onchange='trainChanged(this)'></td>
-            <td><input type='number' id='amp2' value='0' onchange='trainChanged(this)'></td>
-            <td><input type='number' id='speed2' value='1' onchange='trainChanged(this)'></td>
-            <td><input type='number' id='trim2' value='0' onchange='trainChanged(this)'></td>
-          </tr>
-          <tr>
-            <td>LB</td>
-            <td><input type='number' id='start3' value='0' onchange='trainChanged(this)'></td>
-            <td><input type='number' id='amp3' value='0' onchange='trainChanged(this)'></td>
-            <td><input type='number' id='speed3' value='1' onchange='trainChanged(this)'></td>
-            <td><input type='number' id='trim3' value='0' onchange='trainChanged(this)'></td>
+            <td></td>
+            <td></td>
+            <td></td>
           </tr>
         </tbody>
       </table>
     </p>
-    <button onclick='setWalikingPattern()'>Set</button>
   </div>
 </body>
 <script>
 
   var $ = function( id ) { return document.getElementById( id ); };
-
-  var defaultPattern = {
-    'frameIntervall' : 3000,
-    'frameNumber'    : 200,
-    'servomin'       : 200,
-    'servomax'       : 300,
-    'startPosistons' : [0, 100, 100, 0],
-    'amplicifations' : [100, 100, 100, 100],
-    'speed'          : [1, 1, 1, 1],
-    'trim'          :  [0, 0, 0, 0]
-  }
-
-  var currentPattern = {
-    'frameIntervall' : defaultPattern.frameIntervall,
-    'frameNumber'    : defaultPattern.frameNumber,
-    'servomin'       : defaultPattern.servomin,
-    'servomax'       : defaultPattern.servomax,
-    'startPosistons' : defaultPattern.startPosistons.slice(0),
-    'amplicifations' : defaultPattern.amplicifations.slice(0),
-    'speed'          : defaultPattern.speed.slice(0),
-    'trim'           : defaultPattern.trim.slice(0)
-  }
 
   var mainSwitch = function(el) {
     if (el.checked) {
@@ -235,45 +202,20 @@ String html_index = R"###(
 
   var modeSwitch = function(el) {
     if (el.checked) {
-      var xhr = get('/mode/train', function (err, status) {
+      var xhr = get('/mode/rc', function (err, status) {
       });
     } else {
-      var xhr = get('/mode/search', function (err, status) {
+      var xhr = get('/mode/auto', function (err, status) {
       });
     };
   };
 
-  var trainChanged = function(el) {
-
-  }
-
-  var setWalikingPattern = function() {
-    currentPattern.frameIntervall = $('frameIntervall').value;
-    currentPattern.frameNumber = $('frameNumber').value;
-    currentPattern.servomin = $('servomin').value;
-    currentPattern.servomax = $('servomax').value;
-    for (var i=0; i<4; i++) {
-      currentPattern.startPosistons[i] = $('start'+i).value;
-      currentPattern.amplicifations[i] = $('amp'+i).value;
-      currentPattern.speed[i] = $('speed'+i).value;
-      currentPattern.trim[i] = $('trim'+i).value;
-    }
-    var xhr = post('/setWalkingPattern', currentPattern, function (err, status) {
-      console.log('The current status is: ' + status);
-    });
-  }
+  var rcont = function(instruction) {
+    var xhr = get('/rc/' + instruction, function (err, status) {      });
+  };
 
   var updateUI = function() {
-    $('frameIntervall').value = currentPattern.frameIntervall;
-    $('frameNumber').value = currentPattern.frameNumber;
-    $('servomin').value = currentPattern.servomin;
-    $('servomax').value = currentPattern.servomax;
-    for (var i=0; i<4; i++) {
-      $('start'+i).value = currentPattern.startPosistons[i];
-      $('amp'+i).value = currentPattern.amplicifations[i];
-      $('speed'+i).value = currentPattern.speed[i];
-      $('trim'+i).value = currentPattern.trim[i];
-    }
+
   }
 
   var main = function() {

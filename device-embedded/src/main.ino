@@ -20,90 +20,73 @@
 #include <Arduino.h>
 #include <Modular.h>
 #include <Sonar.h>
-//#include <Chassis.h>
-#include <ChassisWalking.h>
-#include <Vision.h>
-#include <Pickupsystem.h>
-#include <Pins.h>
+#include <ChassisBiped.h>
 
-// VOICE
+// Configuration
+#include <Config.h>
 
+// System States
 
-enum IgelJobState {
-  IGEL_SEARCH,
-  IGEL_TRACK,
-  IGEL_PICK,
-  IGEL_GOHOME,
-  IGEL_DROP,
-  IGEL_OBSTACLE,
-  RESUME_LAST,
-  IGEL_TRAIN,
+// The Robot has 3 States:
+// The first three are modes of operation (default is AUTONOMOUS)
+// REMOTE_CONTROL and TEACH (Blockly JR) are controlled by the app.
+// From any mode, if an obstacle is detected, the system will go to DODGE
+// mode. RESUME_LAST is a dynamic state that resumes the last state.
+enum SystemJobState {
+  AUTONOMOUS,
+  REMOTE_CONTROL,
+  TEACH,
+  DODGE,
+  RESUME_LAST
 };
 
-struct IgelState {
+struct SystemState {
   ChassisState chassis;
   SonarState sonar;
-  VisionState vision;
-  PickupState pickup;
   bool stop = true;
-  IgelJobState job;
+  SystemJobState job;
 } state;
 
+// Components used by the system
 Sonar *sonar;
-ChassisWalking *chassis;
-Vision *vision;
-PickupSystem *pickupSystem;
+ChassisBiped *chassis;
+// Voice *voice; // To be developed
 
+// Variables to operate the full system
+SystemJobState lastJobState;
+int stepCount = 0;
+int teachLastIndex = 0;
+int teachIndex =0;
+ChassisOperations teachOperations[100];
+bool teachLoop = false;
 // Plugins
 #include <Api.h>
 
-int lc = 0;
-IgelJobState lastJobState;
-
 void setup() {
   Serial.begin(9600);
+  // Wait for serail on feather
   /*while ( ! Serial ) {
       delay( 1 );
   }*/
-
-  Serial.println("IgelBot: Booting...");
+  Serial.println("System: Booting...");
   sonar = new Sonar(SONAR_TRIGGER_PIN, SONAR_ECHO_PIN, SONAR_MAX_DISTANCE);
-  //chassis = new Chassis(MOTOR_RIGHT, MOTOR_LEFT, SERVO_STEER_C1, SERVO_STEER_C2);
-  chassis = new ChassisWalking(SERVO_FRONT_RIGHT, SERVO_BACK_RIGHT, SERVO_FRONT_LEFT, SERVO_BACK_LEFT, SERVO_BACKBONE);
-  vision = new Vision();
-  pickupSystem = new PickupSystem(PICKUPSYSTEM_PIN);
+  chassis = new ChassisBiped(SERVO_FOOT_RIGHT, SERVO_HIP_RIGHT, SERVO_FOOT_LEFT, SERVO_HIP_LEFT, SERVO_NECK);
 
   // Initialze web Api
   setupApi(WIFI_CS, WIFI_IRQ, WIFI_RST, WIFI_EN, WIFI_LISTEN_PORT);
+  Serial.println("System: System started");
 
-  Serial.println("IgelBot: System started");
-
-  setJobState(IGEL_SEARCH);
-  //setJobState(IGEL_TRAIN);
-  stop();
+  setJobState(AUTONOMOUS);
+  start();
 }
 
 void loop() {
   if(!state.stop) {
-    if (state.job == IGEL_TRAIN) {
-      chassis->forward();
-      chassis->loop(&state.chassis);
-    } else {
-      // Loop components
-      sonar->loop(&state.sonar);
-      chassis->loop(&state.chassis);
-      vision->loop(&state.vision);
-      pickupSystem->loop(&state.pickup);
-      // Run Actions based on strategy
-      strategy();
-    }
-
+    sonar->loop(&state.sonar);
+    chassis->loop(&state.chassis);
+    strategy();
   } else {
     chassis->stop();
-    pickupSystem->release();
-    if (state.job != IGEL_TRAIN and state.job != IGEL_SEARCH) {
-      setJobState(IGEL_SEARCH);
-    }
   }
   loopApi();
 }
@@ -118,7 +101,7 @@ void stop() {
     state.stop = true;
 }
 
-void setJobState(IgelJobState job) {
+void setJobState(SystemJobState job) {
   //ToDo: Only allow valid state transitions
   if (job == RESUME_LAST) {
     state.job = lastJobState;
@@ -135,123 +118,86 @@ void setJobState(IgelJobState job) {
 
 void strategy() {
   // To be discussed: When should Sonar be activated (in which sates)
-  if (state.job == IGEL_OBSTACLE && state.sonar.obstacelDistance > MIN_OBJECT_DISTANCE_CM) {
-    Serial.println("Sonar: No more obstacle");
+  if (state.job != DODGE && (state.sonar.obstacelDistance > 0 && state.sonar.obstacelDistance < MIN_OBJECT_DISTANCE_CM)) {
+    setJobState(DODGE);
+  }
+  if (state.job == DODGE) { exeJobDodge(); }
+  if (state.job == REMOTE_CONTROL) { exeJobRC(); }
+  if (state.job == AUTONOMOUS)     { exeJobAuto();  }
+  if (state.job == TEACH)     { exeJobTeach();  }
+}
+
+// Turn right until distance is ok
+void exeJobDodge() {
+  if (state.sonar.obstacelDistance == 0 || state.sonar.obstacelDistance >= MIN_OBJECT_DISTANCE_CM) {
     setJobState(RESUME_LAST);
   }
-  if (state.sonar.obstacelDistance <= MIN_OBJECT_DISTANCE_CM && state.job != IGEL_OBSTACLE) {
-    Serial.println("Sonar: Obstacle found");
-    setJobState(IGEL_OBSTACLE);
-    chassis->stop();
-    return;
+  // Allways do two steps
+  chassis->doOperation(STEP_RIGHT);
+  chassis->doOperation(STEP_RIGHT);
+}
+
+
+// Methods of RC operation
+void exeJobRC() {
+  // Movement Commands are set by the API, the strategy is only to inverfere only when the robo is in danger
+  // To implement this properly, the API must not directely set chassis actions, rather it should update the API state and
+  // the final decision must be done here.
+}
+
+// Methods for teaching robot with Blockly JR
+
+void teachEmptyStack() {
+  for (int i = 0; i < 100; i++) {
+    teachOperations[i] = CHASSIS_OP_NONE;
   }
-  if (state.job == IGEL_SEARCH) { exeJobSearch(); }
-  if (state.job == IGEL_TRACK)  { exeJobTrack();  }
-  if (state.job == IGEL_PICK)   { exeJobPick();   }
-  if (state.job == IGEL_GOHOME) { exeJobGoHome(); }
-  if (state.job == IGEL_DROP)   { exeJobDrop();   }
-  lc++;
-  if (lc == 100) {
-    Serial.print("Track (dist, dev):");
-    Serial.print(state.vision.targetDistance);
-    Serial.print(" , ");
-    Serial.println(state.vision.targetDeviation);
-    lc = 0;
+  teachLastIndex = 0;
+  teachIndex = 0;
+}
+
+void teachAddOpperation(ChassisOperations op) {
+  if (teachLastIndex < 100) {
+    teachOperations[teachLastIndex] = op;
+    teachLastIndex++;
   }
 }
 
-void exeJobSearch() {
-  // Wait for snail to appear
-  chassis->forward(150);
-  chassis->steer(STEER_LEFT, 255);
-  if (state.vision.targetDistance > 0) {
-    setJobState(IGEL_TRACK);
+void teachRestart() {
+  teachIndex = 0;
+}
+
+void exeJobTeach() {
+  chassis->stop(false);
+  if (teachIndex < teachLastIndex) {
+    chassis->doOperation(teachOperations[teachIndex]);
+    teachIndex++;
+  } else if (teachLoop) {
+    teachRestart();
   }
 }
 
-#define STEER_INERTIA 200
-int steerCount=0;
-SteerDirection currentSteer;
-SteerDirection dectedSteer;
-
-
-// Tell the Chassis to steer with a certain intertia
-void steerControler(SteerDirection steer) {
-  if (steer != currentSteer) {
-    if (dectedSteer == steer) {
-      steerCount++;
-    }
-    if (steerCount > STEER_INERTIA) {
-      chassis->steer(steer, 1);
-      currentSteer = steer;
-      steerCount=0;
-      Serial.println(steer);
-    }
-    dectedSteer = steer;
+//Move until an obstacel is detected, then turn right until the way is free
+void exeJobAuto() {
+  chassis->stop(false);
+  //Serial.println(state.sonar.obstacelDistance);
+  stepCount++;
+  switch (stepCount) {
+    case 0 ... 4:
+      chassis->doOperation(STEP_FORE);
+      break;
+    case 5 ... 9:
+      chassis->doOperation(STEP_RIGHT);
+      break;
+    case 10 ... 14:
+      chassis->doOperation(STEP_FORE);
+      break;
+    case 15 ... 19:
+      chassis->doOperation(STEP_LEFT);
+      break;
+    case 20:
+      stepCount = 0;
+      break;
   }
-}
 
-void exeJobTrack() {
-  // Follow Target
-  chassis->forward(100);
-  // Navigae to Target
-  if (state.vision.targetDeviation > TARGET_NAV_TOLARANCE) {
-    steerControler(STEER_RIGHT);
-  }
-  if (state.vision.targetDeviation < TARGET_NAV_TOLARANCE*(-1)) {
-    steerControler(STEER_LEFT);
-  }
-  if (state.vision.targetDeviation <= TARGET_NAV_TOLARANCE && state.vision.targetDeviation >= TARGET_NAV_TOLARANCE*(-1)) {
-      steerControler(STEER_STRAIGHT);
-  }
-  // Target found (Deviation in Target and Traget below mimial Tolerance)
-  if (state.vision.targetDistance > TARGET_DISTANCE_TOLARANCE && (
-      state.vision.targetDeviation < TARGET_DEVIATION_TOLARANCE ||
-      state.vision.targetDeviation > TARGET_DEVIATION_TOLARANCE*(-1))
-  ) {
-    Serial.println("Track: arrived at target");
-    setJobState(IGEL_PICK);
-    return;
-  }
-  // Target lost: too far right or too far lest or not in camara (targetDistance = -1)
-  if (( state.vision.targetDeviation > TARGET_DEVIATION_TOLARANCE ||
-      state.vision.targetDeviation < TARGET_DEVIATION_TOLARANCE*(-1)) ||
-      state.vision.targetDistance < 0
-  ) {
-      Serial.println("Track: target lost");
-      setJobState(IGEL_SEARCH);
-      return;
-  }
-}
-
-void exeJobPick() {
-  Serial.println("Pickup Target");
-  vision->reset();
-  chassis->forward();
-  delay(2000);
-  chassis->down();
-  pickupSystem->pick();
-  delay(2000);
-  setJobState(IGEL_GOHOME);
-}
-
-void exeJobGoHome() {
-  // For now, just wait 2 seconds
-  Serial.println("Go Home");
-  chassis->up();
-  chassis->steer(STEER_STRAIGHT, 0);
-  chassis->forward();
-  delay(2000);
-  chassis->stop();
-  delay(2000);
-  setJobState(IGEL_DROP);
-}
-
-void exeJobDrop() {
-  Serial.println("Drop Target");
-  pickupSystem->release();
-  chassis->steer(STEER_STRAIGHT, 0);
-  chassis->backward(200);
-  delay(2000);
-  setJobState(IGEL_SEARCH);
+  Serial.println(stepCount);
 }

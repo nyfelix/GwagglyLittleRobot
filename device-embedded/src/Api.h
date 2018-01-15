@@ -1,7 +1,7 @@
 /*
-  This ist the API Plugin for IgelBot.
+  This ist the API Plugin.
   Its a prototype for a plugin to the main class of modular.
-  The plug in si generig, only the methods handlePOST and handleGET must
+  The plugin is generic, only the methods handlePOST and handleGET must
   be implemented locally
 */
 
@@ -11,7 +11,7 @@
 #include <WiFi101.h>
 #include <ArduinoJson.h>
 #include <WiFiConfig.h>
-#include <ChassisWalking.h>
+#include <ChassisBiped.h>
 // Thanks to : https://github.com/apolukhin/html_inside_cpp
 //#include <webapp/html_begin.pp> // header from this repo
 #include <webapp/index.html>
@@ -31,7 +31,11 @@ void printHeaders();
 //ChassisWalking *chassis;
 void start();
 void stop();
-void setJobState(IgelJobState job);
+void setJobState(SystemJobState job);
+void teachEmptyStack();
+void teachAddOpperation(ChassisOperations op);
+void teachRestart();
+
 String handlePOST(String url, String content);
 String handleGET(String url, String params);
 //////////////////////////////////////////////////
@@ -131,47 +135,90 @@ String handlePOST(String url, String content) {
     size_t bufferSize = 3*JSON_ARRAY_SIZE(4) + JSON_OBJECT_SIZE(4);
     DynamicJsonBuffer jsonBuffer(bufferSize);
     JsonObject& root = jsonBuffer.parseObject(content);
-    chassis->frameIntervall = root["frameIntervall"];
-    chassis->frameNumber = root["frameNumber"];
-    chassis->servomin = root["servomin"];
-    chassis->servomax = root["servomax"];
-    // Leg specific Settings
-    JsonArray& StartPosistons = root["startPosistons"];
-    JsonArray& Amplicifations = root["amplicifations"];
-    JsonArray& Speed = root["speed"];
-    JsonArray& Trim = root["trim"];
-    for (int s = 0; s < 4; s++) {
-      chassis->startFrame[s] = StartPosistons[s];
-      chassis->legAmp[s] = Amplicifations[s];
-      chassis->legSpeed[s] = Speed[s];
-      chassis->legTrim[s] = Trim[s];
-    }
-    chassis->reset();
   }
   return "done";
 }
 
 String handleGET(String url, String params) {
+  Serial.println(url);
+  if (url == "/state") {
+    start();
+    printJSONHeaders();
+    // JSONEncode the system state
+    return "not implemented";
+  }
   if (url == "/start") {
     start();
     printJSONHeaders();
-    return "done";
+    return "done"  ;
   }
   if (url == "/stop") {
     stop();
     printJSONHeaders();
     return "done";
   }
-  if (url == "/mode/train") {
-    setJobState(IGEL_TRAIN);
+  if (url == "/mode/rc") {
+    setJobState(REMOTE_CONTROL);
     printJSONHeaders();
     return "done";
   }
-  if (url == "/mode/search") {
-    setJobState(IGEL_SEARCH);
+  if (url == "/mode/auto") {
+    setJobState(AUTONOMOUS);
     printJSONHeaders();
     return "done";
   }
+  if (url == "/mode/teach") {
+    setJobState(TEACH);
+    printJSONHeaders();
+    return "done";
+  }
+
+  if (url == "/rc/stop") {
+    chassis->stop();
+    printJSONHeaders();
+    return "done";
+  }
+
+  if (url == "/rc/forward") {
+    chassis->steer(STEER_STRAIGHT);
+    chassis->forward();
+    printJSONHeaders();
+    return "done";
+  }
+
+  if (url == "/rc/right") {
+    chassis->steer(STEER_RIGHT);
+    chassis->forward();
+    printJSONHeaders();
+    return "done";
+  }
+
+  if (url == "/rc/left") {
+    chassis->steer(STEER_LEFT);
+    chassis->forward();
+    printJSONHeaders();
+    return "done";
+  }
+
+  if (url == "/teach/empty") {
+    teachEmptyStack();
+    printJSONHeaders();
+    return "done";
+  }
+
+  if (url == "/teach/add") {
+    // TODO: Read Params
+    teachAddOpperation(STEP_FORE);
+    printJSONHeaders();
+    return "done";
+  }
+
+  if (url == "/teach/restart") {
+    teachRestart();
+    printJSONHeaders();
+    return "done";
+  }
+
   if (url == "/favicon.ico") {
     printJSONHeaders();
     return "done";
