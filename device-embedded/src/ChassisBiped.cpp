@@ -12,7 +12,7 @@ ChassisBiped::ChassisBiped(uint8_t servoNumRightLeg, uint8_t servoNumRightHip, u
   legs[1] = servoNumLeftLeg;
   hips[0] = servoNumRightHip;
   hips[1] = servoNumLeftHip;
-  servoNeck = servoNeck;
+  this->servoNeck = servoNeck;
   currentSteer = STEER_STRAIGHT;
   reset();
   Serial.println("[OK]");
@@ -30,6 +30,7 @@ void ChassisBiped::reset() {
     pwm.setPWM(legs[s], 0, middlePos);
     pwm.setPWM(hips[s], 0, middlePos);
   }
+  pwm.setPWM(servoNeck, 0, middlePos);
 }
 
 void ChassisBiped::forward() {
@@ -64,6 +65,7 @@ void ChassisBiped::stop(bool doReset) {
   }
   currentState.moving = false;
 }
+
 void ChassisBiped::doOperation(ChassisOperations op) {
   switch (op) {
     case STEP_FORE:
@@ -82,37 +84,47 @@ void ChassisBiped::doOperation(ChassisOperations op) {
 void ChassisBiped::stepForeward() {
   int middlePos = getMiddlePos();
   //Feet to the left
-  moveParallel(legs[0], legs[1], middlePos - bounceF, middlePos + bounceF, false);
+  moveParallel(legs[0], legs[1], middlePos - bounceF, middlePos + bounceF, false, false);
   //Hip right side to front
-  moveParallel(hips[0], hips[1], middlePos + bounceH, middlePos - bounceH, false);
+  moveParallel(hips[0], hips[1], middlePos + bounceH, middlePos - bounceH, false, true);
   //Feet to the right
-  moveParallel(legs[0], legs[1], middlePos + bounceF, middlePos - bounceF, false);
+  moveParallel(legs[0], legs[1], middlePos + bounceF, middlePos - bounceF, false, false);
   //Hip left side to front
-  moveParallel(hips[0], hips[1], middlePos - bounceH, middlePos + bounceH, false);
+  moveParallel(hips[0], hips[1], middlePos - bounceH, middlePos + bounceH, false, true);
 }
 
 void ChassisBiped::stepRight() {
+  reset();
   int middlePos = getMiddlePos();
-  //Feet to the left
-  moveParallel(legs[0], legs[1], middlePos, middlePos - 2*bounceF, false);
-  //Hip right side to front
-  moveParallel(hips[0], hips[1], middlePos, middlePos + 20, true);
-  //Feet to the right
-  moveParallel(legs[0], legs[1], middlePos - 2*bounceF, middlePos, false);
-  //Hip left side to front
-  moveParallel(hips[0], hips[1], middlePos + 20, middlePos, true);
+  //Tilt legt foot
+  int d = 2;
+  moveServo(legs[1],middlePos, middlePos + 2*bounceF, d);
+  moveServo(legs[0],middlePos, middlePos + bounceF, d);
+
+  moveServo(hips[0],middlePos, middlePos - bounceH, d);
+  moveServo(legs[1],middlePos + 2*bounceF, middlePos - bounceF, d);
+  moveServo(legs[0],middlePos + bounceF, middlePos - 2*bounceF, d);
+
+  moveServo(hips[0],middlePos - bounceH, middlePos, d);
+  moveServo(legs[1],middlePos - bounceF, middlePos, d);
+  moveServo(legs[0],middlePos - 2*bounceF, middlePos, d);
 }
 
 void ChassisBiped::stepLeft() {
+  reset();
   int middlePos = getMiddlePos();
-  //Feet to the left
-  moveParallel(legs[0], legs[1], middlePos, middlePos - 2*bounceF, false);
-  //Hip right side to front
-  moveParallel(hips[0], hips[1], middlePos, middlePos - 20, true);
-  //Feet to the right
-  moveParallel(legs[0], legs[1], middlePos - 2*bounceF, middlePos, false);
-  //Hip left side to front
-  moveParallel(hips[0], hips[1], middlePos - 20, middlePos, true);
+  //Tilt legt foot
+  int d = 2;
+  moveServo(legs[0],middlePos, middlePos - 2*bounceF, d);
+  moveServo(legs[1],middlePos, middlePos - bounceF, d);
+
+  moveServo(hips[1],middlePos, middlePos + bounceH, d);
+  moveServo(legs[0],middlePos - 2*bounceF, middlePos + bounceF, d);
+  moveServo(legs[1],middlePos - bounceF, middlePos + 2*bounceF, d);
+
+  moveServo(hips[1],middlePos + bounceH, middlePos, d);
+  moveServo(legs[0],middlePos + bounceF, middlePos, d);
+  moveServo(legs[1],middlePos + 2*bounceF, middlePos, d);
 }
 
 //ToDo: Generic Walking Pattern
@@ -140,39 +152,58 @@ void ChassisBiped::loop(ChassisState *state) {
 }
 
 void ChassisBiped::moveServo(int servo, int from, int to) {
+  moveServo(servo, from, to, speed);
+}
+
+void ChassisBiped::moveServo(int servo, int from, int to, int s) {
   if (to > from) {
     for (uint16_t pulselen = from; pulselen < to; pulselen++) {
       pwm.setPWM(servo, 0, pulselen);
-      delay(speed);
+      delay(s);
     }
   } else {
      for (uint16_t pulselen = from; pulselen > to; pulselen--) {
       pwm.setPWM(servo, 0, pulselen);
-      delay(speed);
+      delay(s);
     }
   }
 }
 
-void ChassisBiped::moveParallel(int servo1, int servo2, int from, int to, bool contra) {
+void ChassisBiped::moveParallelStep(int servo1, int servo2, int pulselen, int plcontra, bool contra) {
+  pwm.setPWM(servo1, 0, pulselen);
+  if (contra) {
+    pwm.setPWM(servo2, 0, plcontra);
+  } else {
+    pwm.setPWM(servo2, 0, pulselen);
+  }
+}
+
+void ChassisBiped::moveParallel(int servo1, int servo2, int from, int to, bool contra, bool head, int s) {
+  int rdc = 1;
+  int middlePos = getMiddlePos();
   if (to > from) {
     for (uint16_t pulselen = from; pulselen < to; pulselen++) {
-      pwm.setPWM(servo1, 0, pulselen);
-      int pl = pulselen;
-      if (contra) {
-        pl = 2*from-pulselen;
+      int plcontra = 2*from-pulselen;
+      if (head) {
+        int pos = middlePos + 1.0*(middlePos-pulselen)/rdc;
+        pwm.setPWM(servoNeck, 0, pos);
+        Serial.println(pos);
       }
-      pwm.setPWM(servo2, 0, pl);
-      delay(speed);
+      moveParallelStep(servo1, servo2, pulselen, plcontra, contra);
+      delay(s);
     }
   } else {
-     for (uint16_t pulselen = from; pulselen > to; pulselen--) {
-      pwm.setPWM(servo1, 0, pulselen);
-      int pl = pulselen;
-      if (contra) {
-        pl = 2*from-pulselen;
+    for (uint16_t pulselen = from; pulselen > to; pulselen--) {
+      int plcontra = 2*from-pulselen;
+      if (head) {
+        pwm.setPWM(servoNeck, 0, middlePos + 1.0*(middlePos-pulselen)/rdc);
       }
-      pwm.setPWM(servo2, 0, pl);
-      delay(speed);
+      moveParallelStep(servo1, servo2, pulselen, plcontra, contra);
+      delay(s);
     }
   }
+}
+
+void ChassisBiped::moveParallel(int servo1, int servo2, int from, int to, bool contra, bool head) {
+  moveParallel( servo1, servo2, from,  to, contra, head, speed);
 }

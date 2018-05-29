@@ -48,7 +48,10 @@ class ChassisBiped : public Component
 
   protected:
     void moveServo(int servo, int from, int to);
-    void moveParallel(int servo1, int servo2, int from, int to, bool contra);
+    void moveServo(int servo, int from, int to, int s);
+    void moveParallelStep(int servo1, int servo2, int pulselen, int plcontra, bool contra);
+    void moveParallel(int servo1, int servo2, int from, int to, bool contra, bool head);
+    void moveParallel(int servo1, int servo2, int from, int to, bool contra, bool head, int s);
     void stepForeward();
     void stepRight();
     void stepLeft();
@@ -58,8 +61,8 @@ class ChassisBiped : public Component
     uint8_t legs[2] = {};
     uint8_t hips[2] = {};
     uint8_t servoNeck;
-    int bounceF = 40;
-    int bounceH = 100;
+    int bounceF = 35;
+    int bounceH = 90;
     int curFootPos[2];
     int curHipPos[2];
     int speed=1;

@@ -76,12 +76,12 @@ void setup() {
   setupApi(WIFI_CS, WIFI_IRQ, WIFI_RST, WIFI_EN, WIFI_LISTEN_PORT);
   Serial.println("System: System started");
 
-  setJobState(AUTONOMOUS);
+  setJobState(REMOTE_CONTROL);
   start();
 }
 
 void loop() {
-  if(!state.stop) {
+  if(!state.stop) 
     sonar->loop(&state.sonar);
     chassis->loop(&state.chassis);
     strategy();
