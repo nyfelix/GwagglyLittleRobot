@@ -5,8 +5,10 @@
 #include <Modular.h>
 #include <NewPing.h>
 
+#define INFINITE_DISTANCE 9999;
+
 struct SonarState {
-  int obstacelDistance = 9999;
+  int obstacelDistance = INFINITE_DISTANCE;
 };
 
 class Sonar : public Component
