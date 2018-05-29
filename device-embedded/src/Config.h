@@ -13,7 +13,7 @@
 #define SERVO_NECK 6
 
 // Sonar Pins
-#define SONAR_TRIGGER_PIN 10 //>>>>>>>>>>>>>><<<>>>>>>  yellow
+#define SONAR_TRIGGER_PIN 10 //  yellow
 #define SONAR_ECHO_PIN 9 // orange
 #define SONAR_MAX_DISTANCE 500
 

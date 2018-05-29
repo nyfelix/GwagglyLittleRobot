@@ -77,7 +77,7 @@ void setup() {
   Serial.println("System: System started");
 
   setJobState(AUTONOMOUS);
-  start();
+  stop();
 }
 
 void loop() {
@@ -129,6 +129,7 @@ void strategy() {
 
 // Turn right until distance is ok
 void exeJobDodge() {
+  Serial.println(state.sonar.obstacelDistance);
   if (state.sonar.obstacelDistance == 0 || state.sonar.obstacelDistance >= MIN_OBJECT_DISTANCE_CM) {
     setJobState(RESUME_LAST);
   }
@@ -182,22 +183,20 @@ void exeJobAuto() {
   //Serial.println(state.sonar.obstacelDistance);
   stepCount++;
   switch (stepCount) {
-    case 0 ... 4:
-      chassis->doOperation(STEP_FORE);
-      break;
-    case 5 ... 9:
-      chassis->doOperation(STEP_RIGHT);
-      break;
-    case 10 ... 14:
+    case 0 ... 14:
       chassis->doOperation(STEP_FORE);
       break;
     case 15 ... 19:
+      chassis->doOperation(STEP_RIGHT);
+      break;
+    case 20 ... 34:
+      chassis->doOperation(STEP_FORE);
+      break;
+    case 35 ... 39:
       chassis->doOperation(STEP_LEFT);
       break;
-    case 20:
+    case 40:
       stepCount = 0;
       break;
   }
-
-  Serial.println(stepCount);
 }
