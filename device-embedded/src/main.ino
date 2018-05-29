@@ -81,7 +81,7 @@ void setup() {
 }
 
 void loop() {
-  if(!state.stop)
+  if(!state.stop) {
     sonar->loop(&state.sonar);
     chassis->loop(&state.chassis);
     strategy();
