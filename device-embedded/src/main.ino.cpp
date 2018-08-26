@@ -1,38 +1,16 @@
-/*
-  This is the sourcecode of IgelBot Project.
-  But also, it is an approach to design a robotic system inspired be the React Flux Pattern
-  For now, this pattern ins not properly embedded into a framework, but rather developed
-  following a set of concentions / rules:
-  - A system consists of number of components
-  - Components are reusabel mechatronic units
-  - A component has
-    - a state: struct {ComponentName}State
-    - a number of Actions, that initiaite a behavoir in physical or logical operation (e.g. a movement, read a sensor signal)
-    - a loop method, that executes the next step. A Component loop must never use a timefunciton such as delay()
-      The Loop is ment have a very low porcessing time in order to have short reaction time from signals of other component.
-  - Only a Component is allowed to update its state (through actions or loop).
-  - The main loop works like flux:
-    1. Read Input form the Supersystem
-    2. Set Actions, based on the current State (you could call this step the "Strategy" step)
-    3. Loop each component
-*/
-
+# 1 "/var/folders/ch/1lck182n1_q1thdk0zn0p6_m0000gn/T/tmpOTf2ml"
+#include <Arduino.h>
+# 1 "/Users/nyfelix/dev/GwagglyLittleRobot/device-embedded/src/main.ino"
+# 20 "/Users/nyfelix/dev/GwagglyLittleRobot/device-embedded/src/main.ino"
 #include <Arduino.h>
 #include <Modular.h>
 #include <Sonar.h>
 #include <ChassisBiped.h>
 #include <Voice.h>
 
-// Configuration
+
 #include <Config.h>
-
-// System States
-
-// The Robot has 3 States:
-// The first three are modes of operation (default is AUTONOMOUS)
-// REMOTE_CONTROL and TEACH (Blockly JR) are controlled by the app.
-// From any mode, if an obstacle is detected, the system will go to DODGE
-// mode. RESUME_LAST is a dynamic state that resumes the last state.
+# 36 "/Users/nyfelix/dev/GwagglyLittleRobot/device-embedded/src/main.ino"
 enum SystemJobState {
   AUTONOMOUS,
   REMOTE_CONTROL,
@@ -49,26 +27,39 @@ struct SystemState {
   SystemJobState job;
 } state;
 
-// Components used by the system
+
 Sonar *sonar;
 ChassisBiped *chassis;
 Voice *voice;
 
-// Variables to operate the full system
+
 SystemJobState lastJobState;
 int stepCount = 0;
 int teachLastIndex = 0;
 int teachIndex =0;
 ChassisOperations teachOperations[100];
 bool teachLoop = false;
-// Plugins
-#include <Api.h>
 
+#include <Api.h>
+void setup();
+void loop();
+void start();
+void stop();
+void setJobState(SystemJobState job);
+void strategy();
+void exeJobDodge();
+void exeJobRC();
+void teachEmptyStack();
+void teachAddOpperation(ChassisOperations op);
+void teachRestart();
+void exeJobTeach();
+void exeJobAuto();
+#line 67 "/Users/nyfelix/dev/GwagglyLittleRobot/device-embedded/src/main.ino"
 void setup() {
   Serial.begin(9600);
 
   #ifdef DEBUG
-  // Wait for serail on feather
+
   while ( ! Serial ) {
       delay( 1 );
   }
@@ -77,7 +68,7 @@ void setup() {
   sonar = new Sonar(SONAR_TRIGGER_PIN, SONAR_ECHO_PIN, SONAR_MAX_DISTANCE);
   chassis = new ChassisBiped(SERVO_FOOT_RIGHT, SERVO_HIP_RIGHT, SERVO_FOOT_LEFT, SERVO_HIP_LEFT, SERVO_NECK);
   voice = new Voice(VS1053_RESET, VS1053_CS, VS1053_DCS, VS1053_DREQ, SDCARD_CS);
-  // Initialze web Api
+
   setupApi(WIFI_CS, WIFI_IRQ, WIFI_RST, WIFI_EN, WIFI_LISTEN_PORT);
   Serial.println("System: System started");
 
@@ -94,22 +85,22 @@ void loop() {
     chassis->stop();
   }
   loopApi();
-  //Do loop now
+
   voice->loop(&state.voice);
 }
 
-/* main Action Start */
+
 void start() {
     state.stop = false;
 }
 
-/* main Action Start */
+
 void stop() {
     state.stop = true;
 }
 
 void setJobState(SystemJobState job) {
-  //ToDo: Only allow valid state transitions
+
   if (job == RESUME_LAST) {
     state.job = lastJobState;
   } else {
@@ -120,40 +111,40 @@ void setJobState(SystemJobState job) {
   Serial.println (state.job);
 }
 
-/* Run Component actions based on the current state */
-/* Strategy consts */
+
+
 
 void strategy() {
-  // To be discussed: When should Sonar be activated (in which sates)
+
   if (state.job != DODGE && (state.sonar.obstacelDistance > 0 && state.sonar.obstacelDistance < MIN_OBJECT_DISTANCE_CM)) {
     setJobState(DODGE);
   }
   if (state.job == DODGE) { exeJobDodge(); }
   if (state.job == REMOTE_CONTROL) { exeJobRC(); }
-  if (state.job == AUTONOMOUS)     { exeJobAuto();  }
-  if (state.job == TEACH)     { exeJobTeach();  }
+  if (state.job == AUTONOMOUS) { exeJobAuto(); }
+  if (state.job == TEACH) { exeJobTeach(); }
 }
 
-// Turn right until distance is ok
+
 void exeJobDodge() {
   Serial.println(state.sonar.obstacelDistance);
   if (state.sonar.obstacelDistance == 0 || state.sonar.obstacelDistance >= MIN_OBJECT_DISTANCE_CM) {
     setJobState(RESUME_LAST);
   }
-  // Allways do two steps
+
   chassis->doOperation(STEP_RIGHT);
   chassis->doOperation(STEP_RIGHT);
 }
 
 
-// Methods of RC operation
+
 void exeJobRC() {
-  // Movement Commands are set by the API, the strategy is only to inverfere only when the robo is in danger
-  // To implement this properly, the API must not directely set chassis actions, rather it should update the API state and
-  // the final decision must be done here.
+
+
+
 }
 
-// Methods for teaching robot with Blockly JR
+
 
 void teachEmptyStack() {
   for (int i = 0; i < 100; i++) {
@@ -184,10 +175,10 @@ void exeJobTeach() {
   }
 }
 
-//Move until an obstacel is detected, then turn right until the way is free
+
 void exeJobAuto() {
   chassis->stop(false);
-  //Serial.println(state.sonar.obstacelDistance);
+
   stepCount++;
   switch (stepCount) {
     case 0 ... 14:

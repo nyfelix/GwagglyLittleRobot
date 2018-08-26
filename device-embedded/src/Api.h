@@ -17,6 +17,8 @@
 #include <webapp/index.html>
 //#include <webapp/html_end.pp>   // header from this repo
 
+#define RESPONSE_DEFAULT_SUCCESS "{ \"jsonroc\" : \"2.0\", \"result\" : true }"
+#define RESPONSE_NOT_FOUND "{ \"jsonroc\" : \"2.0\", \"error\" : \"Method not implemented.\" }"
 // Declarations for WiFi API
 WiFiServer* server;
 WiFiClient client;
@@ -136,104 +138,113 @@ String handlePOST(String url, String content) {
     DynamicJsonBuffer jsonBuffer(bufferSize);
     JsonObject& root = jsonBuffer.parseObject(content);
   }
-  return "done";
+  return RESPONSE_DEFAULT_SUCCESS;
 }
 
 String handleGET(String url, String params) {
   Serial.println(url);
   if (url == "/state") {
-    start();
     printJSONHeaders();
-    // JSONEncode the system state
-    return "not implemented";
+    return RESPONSE_NOT_FOUND;
   }
   if (url == "/start") {
     start();
     printJSONHeaders();
-    return "done"  ;
+    return RESPONSE_DEFAULT_SUCCESS  ;
   }
   if (url == "/stop") {
     stop();
     printJSONHeaders();
-    return "done";
+    return RESPONSE_DEFAULT_SUCCESS;
   }
   if (url == "/mode/rc") {
     setJobState(REMOTE_CONTROL);
     printJSONHeaders();
-    return "done";
+    return RESPONSE_DEFAULT_SUCCESS;
   }
   if (url == "/mode/auto") {
     setJobState(AUTONOMOUS);
     printJSONHeaders();
-    return "done";
+    return RESPONSE_DEFAULT_SUCCESS;
   }
   if (url == "/mode/teach") {
     setJobState(TEACH);
     printJSONHeaders();
-    return "done";
+    return RESPONSE_DEFAULT_SUCCESS;
   }
 
   if (url == "/rc/stop") {
     chassis->stop();
     printJSONHeaders();
-    return "done";
+    return RESPONSE_DEFAULT_SUCCESS;
   }
 
   if (url == "/rc/forward") {
     chassis->steer(STEER_STRAIGHT);
     chassis->forward();
     printJSONHeaders();
-    return "done";
+    return RESPONSE_DEFAULT_SUCCESS;
   }
 
   if (url == "/rc/right") {
     chassis->steer(STEER_RIGHT);
     chassis->forward();
     printJSONHeaders();
-    return "done";
+    return RESPONSE_DEFAULT_SUCCESS;
   }
 
   if (url == "/rc/left") {
     chassis->steer(STEER_LEFT);
     chassis->forward();
     printJSONHeaders();
-    return "done";
+    return RESPONSE_DEFAULT_SUCCESS;
   }
 
   if (url == "/teach/empty") {
     teachEmptyStack();
     printJSONHeaders();
-    return "done";
+    return RESPONSE_DEFAULT_SUCCESS;
   }
 
   if (url == "/teach/add") {
     // TODO: Read Params
     teachAddOpperation(STEP_FORE);
     printJSONHeaders();
-    return "done";
+    return RESPONSE_DEFAULT_SUCCESS;
   }
 
   if (url == "/teach/restart") {
     teachRestart();
     printJSONHeaders();
-    return "done";
+    return RESPONSE_DEFAULT_SUCCESS;
   }
 
-  if (url == "/favicon.ico") {
+  if (url == "/voice/play") {
+    // Implement a proper param parser later on handleGET level
+    int valueStart = params.indexOf("=");
+    const char* fileName = url.substring(valueStart).c_str();
+    debugLn(fileName);
+    voice->play(fileName);
     printJSONHeaders();
-    return "done";
+    return RESPONSE_DEFAULT_SUCCESS;
   }
-  //Serial.println("Start HTML");
-  printHTMLHeaders();
-  //Serial.println(html_index);
-  //return "<html><h1>It Works!</h1></html>";
-  /*for ( char* it=html_index.begin(); it!=html_index.end(); ++it)
-    client.write(*it);*/
-  int CHUNK_LEN = 50;
-  for (int i = 0; i < html_index.length(); i += CHUNK_LEN)
-    client.print(html_index.substring(i, i + CHUNK_LEN));
-  return "";
-}
 
+  if (url == "/" || url =="/index.html" || url == "") {
+    //Serial.println("Start HTML");
+    printHTMLHeaders();
+    //Serial.println(html_index);
+    //return "<html><h1>It Works!</h1></html>";
+    /*for ( char* it=html_index.begin(); it!=html_index.end(); ++it)
+      client.write(*it);*/
+    int CHUNK_LEN = 50;
+    for (int i = 0; i < html_index.length(); i += CHUNK_LEN)
+      client.print(html_index.substring(i, i + CHUNK_LEN));
+    return "";
+  }
+
+  // No route found
+  printJSONHeaders();
+  return RESPONSE_NOT_FOUND;
+}
 
 #endif
