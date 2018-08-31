@@ -16,6 +16,8 @@
 //#include <webapp/html_begin.pp> // header from this repo
 #include <webapp/index.html>
 //#include <webapp/html_end.pp>   // header from this repo
+#include <SD.h>
+
 
 #define RESPONSE_DEFAULT_SUCCESS "{ \"jsonroc\" : \"2.0\", \"result\" : true }"
 #define RESPONSE_NOT_FOUND "{ \"jsonroc\" : \"2.0\", \"error\" : \"Method not implemented.\" }"
@@ -23,14 +25,15 @@
 WiFiServer* server;
 WiFiClient client;
 int status = WL_IDLE_STATUS;
+bool staticAvailable = false;
 
 // Declare Functions for API
 String handleRequest(String req);
 void printHeaders();
 
 //////////////////////////////////////////////////
-// Implementation for IgelBot
-//ChassisWalking *chassis;
+// Implementation for Gwaggli
+
 void start();
 void stop();
 void setJobState(SystemJobState job);
@@ -48,6 +51,14 @@ void setupApi(int8_t cs, int8_t irq, int8_t rst, int8_t en, int port) {
   // Setup the WiFi Connection
   WiFi.setPins(cs, irq, rst, en);
   server = new WiFiServer(port);
+
+  // Here I assuem, that SD has beein initialized, not sure, how to determine this properly
+  if (!SD.exists("/www-root")) {
+    Serial.println(F("No static http content"));
+    staticAvailable = false;
+  } else {
+    staticAvailable = true;
+  }
   // Connect to WiFi or create one
   int cc = 0;
   while (status != WL_CONNECTED || status == WL_AP_LISTENING) {
@@ -113,13 +124,12 @@ void printHTMLHeaders() {
 
 // General
 String handleRequest(String req) {
-  //Serial.print("New Request: ");
-  //Serial.println(req);
-  int sep = req.indexOf("/");
-  String method = req.substring(0,sep-1);
-  String fullUrl = req.substring(sep, req.indexOf("HTTP")-1);
-  String url = fullUrl.substring(0, req.indexOf("?")-1);
-  String params = fullUrl.substring(req.indexOf("?"));
+  debugLn("New Request: ");
+  String method = req.substring(0,req.indexOf("/")-1);
+  String fullUrl = req.substring(req.indexOf("/"), req.indexOf("HTTP")-1);
+  debugLn(fullUrl);
+  String url = fullUrl.substring(0, fullUrl.indexOf("?"));
+  String params = fullUrl.substring(fullUrl.indexOf("?")+1);
   if (method == "POST") {
     //Serial.println(req);
     String content = req.substring(req.indexOf("\r\n\r\n"));
@@ -221,14 +231,20 @@ String handleGET(String url, String params) {
 
   if (url == "/voice/play") {
     // Implement a proper param parser later on handleGET level
-    int valueStart = params.indexOf("=");
-    const char* fileName = url.substring(valueStart).c_str();
+    int valueStart = params.indexOf("=")+1;
+    const char* fileName = strdup(params.substring(valueStart).c_str());
     debugLn(fileName);
     voice->play(fileName);
+    //voice->play("TRACK002.mp3");
     printJSONHeaders();
     return RESPONSE_DEFAULT_SUCCESS;
   }
 
+  // for all other GET routes, we assume static http that is stored on the SD Card
+  //ToDo: read file from SD card and stream to client in proper chunks.
+  int CHUNK_LEN = 50;
+
+  // Remove this:
   if (url == "/" || url =="/index.html" || url == "") {
     //Serial.println("Start HTML");
     printHTMLHeaders();
@@ -242,7 +258,7 @@ String handleGET(String url, String params) {
     return "";
   }
 
-  // No route found
+  // No route found, send 404 Error Message
   printJSONHeaders();
   return RESPONSE_NOT_FOUND;
 }

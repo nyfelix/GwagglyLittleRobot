@@ -9,3 +9,9 @@ This folder contains all information needed to build the physical design.
 ## Mechanical Design
 The mechanical design is based on https://www.thingiverse.com/thing:19594 by David Ultis (Licence: Creative Commons).
 Feet, breackets and base plate are used from the original design. The head is built by us.
+
+### Bill of Material
+
+### Assembly Instructions
+
+## Electrical Design / Wireing
