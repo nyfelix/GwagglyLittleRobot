@@ -255,21 +255,34 @@ String handleGET(String url, String params) {
 
   debug("Static request for file: ");
   debugLn(fileName);
-  File content = SD.open(fileName.c_str());
-
+  File content = SD.open(fileName.c_str(), FILE_READ);
 
   if (content) {
     debugLn("File found");
     printHTMLHeaders();
+    String buf = "";
+    int bufSize = 100;
+    int i = 1;
     while (content.available()) {
-      Serial.print(content.read());
+      char c = content.read();
+      buf += c;
+      if (i > bufSize) {
+        client.print(buf);
+        debugLn(buf);
+        buf = "";
+        i = 1;
+      }
+      i++;
     }
+    client.print(buf);
+    debugLn(buf);
     content.close();
+    client.println(buf);
   }
   else {
     printHTMLHeaders(HTTP_NOT_FOUND);
     File root = SD.open("/");
-    printDirectory(root, 0);
+    //printDirectory(root, 0);
   }
   return "";
 }
