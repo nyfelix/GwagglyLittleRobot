@@ -32,8 +32,13 @@
 #define SDCARD_CS       5     // Card chip select pin
 // DREQ should be an Int pin *if possible* (not possible on 32u4)
 #define VS1053_DREQ     9     // VS1053 Data request, ideally an Interrupt pin
+
 ////////////////////////////////////////////////////////////////////
-// General Igel specific Configuraiton (Strategy)
+// General Device specific Configuraiton (Strategy)
 //
 
-#define MIN_OBJECT_DISTANCE_CM 10
+// Minimum distnace of object to start evasive maneuver
+#define MIN_OBJECT_DISTANCE_CM 15
+
+// Root directory for static web content on the SD Card
+#define WWW_ROOT "/www-root"

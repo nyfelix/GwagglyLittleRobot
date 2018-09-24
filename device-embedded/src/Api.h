@@ -9,37 +9,38 @@
 #define api_h
 
 #include <WiFi101.h>
-#include <ArduinoJson.h>
 #include <WiFiConfig.h>
-#include <ChassisBiped.h>
 // Thanks to : https://github.com/apolukhin/html_inside_cpp
 //#include <webapp/html_begin.pp> // header from this repo
 #include <webapp/index.html>
 //#include <webapp/html_end.pp>   // header from this repo
 #include <SD.h>
 
-
+#define FILE_BUF 50;
 #define RESPONSE_DEFAULT_SUCCESS "{ \"jsonroc\" : \"2.0\", \"result\" : true }"
 #define RESPONSE_NOT_FOUND "{ \"jsonroc\" : \"2.0\", \"error\" : \"Method not implemented.\" }"
+
 // Declarations for WiFi API
 WiFiServer* server;
 WiFiClient client;
 int status = WL_IDLE_STATUS;
 bool staticAvailable = false;
 
+enum HttpStatus {
+  HTTP_OK,
+  HTTP_NOT_FOUND
+};
+
 // Declare Functions for API
 String handleRequest(String req);
 void printHeaders();
-
-//////////////////////////////////////////////////
-// Implementation for Gwaggli
-
 void start();
 void stop();
 void setJobState(SystemJobState job);
 void teachEmptyStack();
 void teachAddOpperation(ChassisOperations op);
 void teachRestart();
+void printDirectory(File dir, int numTabs);
 
 String handlePOST(String url, String content);
 String handleGET(String url, String params);
@@ -115,9 +116,16 @@ void printJSONHeaders() {
   client.println("");
 }
 
-void printHTMLHeaders() {
+void printHTMLHeaders(HttpStatus status = HTTP_OK) {
   //ToDo: Set proper Headers here
-  client.println("HTTP/1.1 200 OK");
+  switch (status) {
+    case HTTP_OK :
+      client.println("HTTP/1.1 200 OK");
+      break;
+    case HTTP_NOT_FOUND :
+      client.println("HTTP/1.1 404 Not Found");
+      break;
+  }
   client.println("Content-Type: text/html");
   client.println("");
 }
@@ -235,32 +243,64 @@ String handleGET(String url, String params) {
     const char* fileName = strdup(params.substring(valueStart).c_str());
     debugLn(fileName);
     voice->play(fileName);
-    //voice->play("TRACK002.mp3");
     printJSONHeaders();
     return RESPONSE_DEFAULT_SUCCESS;
   }
 
   // for all other GET routes, we assume static http that is stored on the SD Card
-  //ToDo: read file from SD card and stream to client in proper chunks.
-  int CHUNK_LEN = 50;
-
-  // Remove this:
   if (url == "/" || url =="/index.html" || url == "") {
-    //Serial.println("Start HTML");
-    printHTMLHeaders();
-    //Serial.println(html_index);
-    //return "<html><h1>It Works!</h1></html>";
-    /*for ( char* it=html_index.begin(); it!=html_index.end(); ++it)
-      client.write(*it);*/
-    int CHUNK_LEN = 50;
-    for (int i = 0; i < html_index.length(); i += CHUNK_LEN)
-      client.print(html_index.substring(i, i + CHUNK_LEN));
-    return "";
+    url = "/index.htm";
   }
+  String fileName = WWW_ROOT + url;
 
-  // No route found, send 404 Error Message
-  printJSONHeaders();
-  return RESPONSE_NOT_FOUND;
+  debug("Static request for file: ");
+  debugLn(fileName);
+  File content = SD.open(fileName.c_str());
+
+
+  if (content) {
+    debugLn("File found");
+    printHTMLHeaders();
+    while (content.available()) {
+      Serial.print(content.read());
+    }
+    content.close();
+  }
+  else {
+    printHTMLHeaders(HTTP_NOT_FOUND);
+    File root = SD.open("/");
+    printDirectory(root, 0);
+  }
+  return "";
+}
+
+void printDirectory(File dir, int numTabs) {
+  // Begin at the start of the directory
+  dir.rewindDirectory();
+
+  while(true) {
+     File entry =  dir.openNextFile();
+     if (! entry) {
+       // no more files
+       //Serial.println("**nomorefiles**");
+       break;
+     }
+     for (uint8_t i=0; i<numTabs; i++) {
+       Serial.print('\t');   // we'll have a nice indentation
+     }
+     // Print the 8.3 name
+     Serial.print(entry.name());
+     // Recurse for directories, otherwise print the file size
+     if (entry.isDirectory()) {
+       Serial.println("/");
+       printDirectory(entry, numTabs+1);
+     } else {
+       // files have sizes, directories do not
+       Serial.print("\t\t");
+       Serial.println(entry.size(), DEC);
+     }
+     entry.close();
+   }
 }
 
 #endif
