@@ -12,7 +12,7 @@
 #include <WiFiConfig.h>
 // Thanks to : https://github.com/apolukhin/html_inside_cpp
 //#include <webapp/html_begin.pp> // header from this repo
-#include <webapp/index.html>
+//#include <webapp/index.html>
 //#include <webapp/html_end.pp>   // header from this repo
 #include <SD.h>
 
@@ -163,7 +163,7 @@ String handleGET(String url, String params) {
   Serial.println(url);
   if (url == "/state") {
     printJSONHeaders();
-    return RESPONSE_NOT_FOUND;
+    return RESPONSE_DEFAULT_SUCCESS;
   }
   if (url == "/start") {
     start();

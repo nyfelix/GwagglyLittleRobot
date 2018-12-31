@@ -3,7 +3,7 @@
 // Define the Pins connected to the arduineo
 //
 
-#define DEBUG
+// #define DEBUG
 
 // Setup for the Feather
 // Chassis Pins
